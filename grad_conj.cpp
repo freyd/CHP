@@ -87,7 +87,7 @@ bool solve(int Nx,int Ny,int Nmax, double Lx, double Ly, double D, double eps, d
   delete[] dd;
 };
 
-void specialProd_parallel(int Nx, int Ny, double Lx, double Ly, double D, double dt, double* x, double *y, int rank, int size){
+void specialProd_parallel(int Nx, int Ny, double Lx, double Ly, double D, double dt, double* x, double *y, int rank, int size, int recouv){
   int i,j,k;
   int debut, fin;
   double dx,dy,alpha,beta,gamma;
@@ -130,6 +130,10 @@ void specialProd_parallel(int Nx, int Ny, double Lx, double Ly, double D, double
     }
   }
   
+  if(rank!=0 && rank != size-1)
+     Nx+= 2*(recouv-1);
+   else
+     Nx+= recouv-1;
 
   //indices locaux
     for(i=0; i< Nx; i++)
@@ -149,7 +153,7 @@ void specialProd_parallel(int Nx, int Ny, double Lx, double Ly, double D, double
   
 };
 
-void advance_parallel(int Nx, int Ny, double D, double Lx, double Ly, double dt, double *k, double *r, double *dd, int rank, int size){
+void advance_parallel(int Nx, int Ny, double D, double Lx, double Ly, double dt, double *k, double *r, double *dd, int rank, int size, int recouv){
   
   double alpha, beta;
   int Nx_global = Nx;
@@ -165,13 +169,16 @@ void advance_parallel(int Nx, int Ny, double D, double Lx, double Ly, double dt,
     }
   }
 
-  /*if(rank!=0)
-    Nx++;*/
+  if(rank!=0 && rank != size-1)
+     Nx+= 2*(recouv-1);
+   else
+     Nx+= recouv-1;
+
   double *w = new double[Nx*Ny];
   double *p = new double[Nx*Ny];
   int i;
   
-  specialProd_parallel(Nx_global,Ny,Lx,Ly,D,dt,dd,w,rank,size);
+  specialProd_parallel(Nx_global,Ny,Lx,Ly,D,dt,dd,w,rank,size,recouv);
   alpha = prodscal(dd,r,Nx*Ny)/prodscal(dd,w,Nx*Ny);
   
   for(i=0;i<Nx*Ny;i++){
@@ -188,7 +195,7 @@ void advance_parallel(int Nx, int Ny, double D, double Lx, double Ly, double dt,
   delete[] w;
 }; 
 
-bool solve_parallel(int Nx,int Ny,int Nmax, double Lx, double Ly, double D, double eps, double dt, double *k, double *b, int rank, int size){
+bool solve_parallel(int Nx,int Ny,int Nmax, double Lx, double Ly, double D, double eps, double dt, double *k, double *b, int rank, int size, int recouv){
   int i;
   double norme;
 
@@ -205,13 +212,16 @@ bool solve_parallel(int Nx,int Ny,int Nmax, double Lx, double Ly, double D, doub
     }
   }
 
-  /*if(rank!=0)
-    Nx++;*/
+  if(rank!=0 && rank != size-1)
+     Nx+= 2*(recouv-1);
+   else
+     Nx+= recouv-1;
+
 
   double *r = new double[Nx*Ny];
   double *dd = new double[Nx*Ny];
 
-  specialProd_parallel(Nx_global,Ny,Lx,Ly,D,dt,k,r,rank,size);
+  specialProd_parallel(Nx_global,Ny,Lx,Ly,D,dt,k,r,rank,size,recouv);
   for(i=0;i<Nx*Ny;i++){
     r[i] = r[i] - b[i];
     
@@ -223,7 +233,7 @@ bool solve_parallel(int Nx,int Ny,int Nmax, double Lx, double Ly, double D, doub
   
   while(i<=Nmax && norme>eps)
     {
-      advance_parallel(Nx_global,Ny,D,Lx,Ly,dt,k,r,dd,rank,size);
+      advance_parallel(Nx_global,Ny,D,Lx,Ly,dt,k,r,dd,rank,size,recouv);
       i++;
       norme = sqrt(prodscal(r,r,Nx*Ny));
       }
