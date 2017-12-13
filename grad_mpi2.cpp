@@ -16,7 +16,7 @@ double func_h(double x, double y){
 
 int main(int argc, char* argv[]){
   int Nx_global=20,Ny_global=25,Nx,Ny,Nmax=100;
-  int i,j,itr,tps,max_iter=10,tag=99,recouv=2;
+  int i,j,itr,tps,max_iter=10,tag=99,recouv=1;
   double Lx = 1.0,Ly=1.0,D=1.0,eps=1e-6,dt=0.1;
   MPI::Init(argc, argv);
   MPI_Request request1, request2, request3, request4;
@@ -91,7 +91,7 @@ double *b = new double[Nx*Ny];
     for(itr=0;itr<300;itr++){
       
       solve_parallel(Nx_global,Ny_global,Nmax,Lx,Ly,D,eps,dt,k,b,rank,size,recouv);
-    
+    #ifdef PARALLEL
    if(rank != 0 && rank != size -1){
       MPI_Irecv(buf2,Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD,&request1);
       MPI_Irecv(buf1,Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD,&request3);
@@ -155,15 +155,15 @@ double *b = new double[Nx*Ny];
       }
       }
     }//modif b
-
+#endif
     }//iter schwarz
-
+#ifdef PARALLEL
     for(i=0;i<Nx;i++){
       for(j=0;j<Ny;j++){
 	k_prec[i*Ny +j] = k[i*Ny+j];
       }
     }
-
+#endif
 
   }//iter tps
   //std::cout << "I am " << rank << std::endl;
