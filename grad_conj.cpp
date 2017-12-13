@@ -74,7 +74,7 @@ bool solve(int Nx,int Ny,int Nmax, double Lx, double Ly, double D, double eps, d
   }
 
   i = 0;
-  norme = sqrt(prodscal(r,r,Nx*Ny));
+  norme = 1.0;
 
   while(i<=Nmax && norme>eps)
     {
@@ -82,7 +82,6 @@ bool solve(int Nx,int Ny,int Nmax, double Lx, double Ly, double D, double eps, d
       i++;
       norme = sqrt(prodscal(r,r,Nx*Ny));
     }
-  
   return (norme < eps);
   delete[] r;
   delete[] dd;

@@ -42,7 +42,9 @@ int main(int argc, char* argv[]){
     Nx++;
   */
   double *k = new double[Nx*Ny];
-  double *b = new double[Nx*Ny];
+  double *k_prec = new double[Nx*Ny];
+
+double *b = new double[Nx*Ny];
   double dx = Lx/(1.0 + Nx_global);
   double dy = Ly/(1.0 + Ny_global);
   double beta = - dt*D*1.0/(dx*dx);
@@ -53,8 +55,10 @@ int main(int argc, char* argv[]){
   for(i=0;i<Nx;i++){
     for(j=0;j<Ny;j++){
       k[i*Ny + j] = 0.0;
+      k_prec[i*Ny + j] = 0.0;
     }
   }
+
 
   for(i=0;i<Nx;i++){
     for(j=0;j<Ny;j++){
@@ -86,11 +90,12 @@ int main(int argc, char* argv[]){
     std::cout << "\n";
   }
   }
-  for(tps=0; tps<1; tps++){
-  //itérations de Schwartz
-    for(itr=0;itr<2;itr++){
 
-    solve_parallel(Nx_global,Ny_global,Nmax,Lx,Ly,D,eps,dt,k,b,rank,size);
+  for(tps=0; tps<10; tps++){
+  //itérations de Schwartz
+    for(itr=0;itr<200;itr++){
+      
+      solve_parallel(Nx_global,Ny_global,Nmax,Lx,Ly,D,eps,dt,k,b,rank,size);
     
    if(rank != 0 && rank != size -1){
       MPI_Irecv(buf2,Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD,&request1);
@@ -132,7 +137,7 @@ int main(int argc, char* argv[]){
     for(i=0;i<Nx;i++){
       for(j=0;j<Ny;j++){
 
-      b[i*Ny +j] = dt*func_f( (rank*(Nx_global/size)+ std::min(rank,Nx_global%size) + (i+1))*dx,(j+1)*dy);
+      b[i*Ny +j] = dt*func_f( (rank*(Nx_global/size)+ std::min(rank,Nx_global%size) + (i+1))*dx,(j+1)*dy) + k_prec[i*Ny +j];
 
       if(j==0)
 	b[i*Ny +j] -= gamma*func_g((rank*(Nx_global/size)+ std::min(rank,Nx_global%size) + (i+1))*dx,0.0);  
@@ -154,30 +159,34 @@ int main(int argc, char* argv[]){
 	  b[i*Ny +j] -= beta*buf2[j];
       }
       }
-    }
-  if(rank==0){
-    for(i=0; i<Nx; i++){
-      for(j=0; j<Ny; j++)
-	std::cout << b[i*Ny +j] << " ";
-      std::cout << "\n";
-    }
-    }
+    }//modif b
+
+    }//iter schwarz
+
+    for(i=0;i<Nx;i++){
+      for(j=0;j<Ny;j++){
+	k_prec[i*Ny +j] = k[i*Ny+j];
+      }
     }
 
-  }
+
+  }//iter tps
   //std::cout << "I am " << rank << std::endl;
     std::cout << "\n";
 	
-    if(rank==0){
+       if(rank==0){
     for(i=0; i<Nx; i++){
       for(j=0; j<Ny; j++)
-	std::cout << k[i*Ny +j] - (i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy) << " ";
+	std::cout << (k[i*Ny +j] - (i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy))/(i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy) << " ";
       std::cout << "\n";
     }
     }
+
+ 
 
   MPI::Finalize();
   delete[] k;
   delete[] b;
+  delete[] k_prec;
   return 0;
 }
