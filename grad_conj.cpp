@@ -242,7 +242,54 @@ bool solve_parallel(int Nx,int Ny,int Nmax, double Lx, double Ly, double D, doub
   delete[] r;
   delete[] dd;
 };
+/*
+bool solve_parallel_bicg(int Nx,int Ny,int Nmax, double Lx, double Ly, double D, double eps, double dt, double *k, double *b, int rank, int size, int recouv){
+  int i;
+  double norme;
 
+ int Nx_global = Nx;
+  if(Nx%size == 0){
+    Nx = Nx/size;
+  }
+  else{
+    if(rank < Nx%size){
+      Nx = Nx/size +1;
+    }
+    else{
+      Nx = Nx/size;
+    }
+  }
+
+  if(rank!=0 && rank != size-1)
+     Nx+= 2*(recouv-1);
+   else
+     Nx+= recouv-1;
+
+
+  double *r = new double[Nx*Ny];
+  double *dd = new double[Nx*Ny];
+
+  specialProd_parallel_bicg(Nx_global,Ny,Lx,Ly,D,dt,k,r,rank,size,recouv);
+  for(i=0;i<Nx*Ny;i++){
+    r[i] = b[i] - r[i];
+    
+    dd[i] = r[i];
+  }
+  
+  i = 0;
+  norme = 1.0;//sqrt(prodscal(r,r,Nx*Ny));
+  
+  while(i<=Nmax && norme>eps)
+    {
+      advance_parallel_bicg(Nx_global,Ny,D,Lx,Ly,dt,k,r,dd,rank,size,recouv);
+      i++;
+      norme = sqrt(prodscal(r,r,Nx*Ny));
+      }
+  //printf("nbr iteration: %d\n",i);
+  return (norme < eps);
+  delete[] r;
+  delete[] dd;
+  };*/
 /*
 int main(){
   int Nx = 2;

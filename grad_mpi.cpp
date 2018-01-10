@@ -96,41 +96,24 @@ double *b = new double[Nx*Ny];
     for(itr=0;itr<200;itr++){
       
       solve_parallel(Nx_global,Ny_global,Nmax,Lx,Ly,D,eps,dt,k,b,rank,size);
-    
-   if(rank != 0 && rank != size -1){
-      MPI_Irecv(buf2,Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD,&request1);
-      MPI_Irecv(buf1,Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD,&request3);
-      MPI_Isend(&(k[(Nx-2)*(Ny-1)]),Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD,&request2);
-      MPI_Isend(k,Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD,&request4);
+     
+ if(rank != 0 && rank != size -1){
+      MPI_Recv(buf1,Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD,&status1);
+      MPI_Send(&(k[(Nx-2-2*(recouv-1))*(Ny-1)]),Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD);
+      MPI_Recv(buf2,Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD,&status2);
+      MPI_Send(&(k[2*(recouv-1)*(Ny-1)]),Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD);
     }
     else{
       if(rank == 0){
-	MPI_Irecv(buf2,Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD,&request1);
-	MPI_Isend(&(k[(Nx-2)*(Ny-1)]),Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD,&request3);
+	MPI_Send(&(k[(Nx-2-2*(recouv-1))*(Ny-1)]),Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD);
+	MPI_Recv(buf2,Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD,&status1);
+	
       }
       if(rank == size -1){
-	MPI_Irecv(buf1,Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD,&request2);
-	MPI_Isend(k,Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD,&request4);
+	MPI_Recv(buf1,Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD,&status1);
+	MPI_Send(&(k[2*(recouv-1)*(Ny-1)]),Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD);
       }
     }
-
-   if(rank != 0 && rank != size -1){
-     MPI_Wait(&request1,&status1);
-     MPI_Wait(&request2,&status2);
-     MPI_Wait(&request3,&status3);
-     MPI_Wait(&request4,&status4);
-   }
-   else{
-     if(rank == 0){
-       MPI_Wait(&request1,&status1);
-       MPI_Wait(&request3,&status3);
-
-     }
-     if(rank == size -1){
-       MPI_Wait(&request2,&status2);
-       MPI_Wait(&request4,&status4);
-     }
-   }
 
 
    
