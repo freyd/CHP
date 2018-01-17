@@ -151,24 +151,55 @@ double *b = new double[Nx*Ny];
 
   }//iter tps
   //std::cout << "I am " << rank << std::endl;
-if (rank == 0){
-  k_global = new double[Nx_global*Ny + 2*(size-1)*recouv];
-}
-MPI_Gather(k,Nx*Ny,MPI_DOUBLE,k_global,Nx_global*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
+
+ /* 
+ int rcounts[size];
+ int displs[size];
+ for(int i=0; i<size;i++){
+   if(i==0){
+     displs[i] = 0;
+     rcounts[i] = (Nx_global/size + recouv-1)*Ny;
+   }
+   else{
+     if(i == size-1){
+       displs[i] = displs[i-1] + (Nx_global/size + 2*(recouv-1))*Ny;
+       rcounts[i] = (Nx_global/size + recouv-1)*Ny;
+     }
+     else{
+       if(i==1){
+	 displs[i] = displs[i-1] + (Nx_global/size + (recouv-1))*Ny;
+       }
+       else
+	 displs[i] = displs[i-1] + (Nx_global/size + 2*(recouv-1))*Ny;
+       rcounts[i] = (Nx_global/size + 2*(recouv-1))*Ny;
+     }
+   }
+ }
+ 
+ MPI_Gatherv(k,Nx*Ny,MPI_DOUBLE,k_global,rcounts,displs,MPI_DOUBLE,0,MPI_COMM_WORLD);*/
+
+
+  if(rank==0){ 
+    k_global = new double[Nx_global*Ny];
+    MPI_Gather(k,(Nx_global/size)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
+  } 
+  else
+    MPI_Gather(&(k[recouv-1]),(Nx_global/size)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
+
    
 if(rank==0){
-    std::cout << "\n";
-    /*FILE* output = fopen("graphe.txt","w+");
+  //std::cout << "\n";
+    FILE* output = fopen("graphe.txt","w+");
 
     for(i=0; i<Nx_global; i++){
       for(j=0; j<Ny; j++){
 	fprintf(output,"%lf %lf %lf\n", k_global[i*Ny +j],(j+1)*dy,(i+1)*dx);
-	std::cout << (k_global[i*Ny +j] - (i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy))/(i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy) << " ";
+	//std::cout << (k_global[i*Ny +j] - (i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy))/(i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy) << " ";
       }    
-      std::cout << "\n"; 
+      //std::cout << "\n"; 
       }
-      fclose(output);*/
-    /* std::ofstream solution;
+      fclose(output);
+     std::ofstream solution;
        solution.open("graphe.vtk", std::ios::out);
        solution << "# vtk DataFile Version 3.0" << endl;
        solution << "sol" << endl;
@@ -189,7 +220,7 @@ if(rank==0){
 	     }
 	   solution << endl;
 	 }
-	 solution.close();*/
+	 solution.close();
        }
 
 
@@ -199,5 +230,7 @@ if(rank==0){
   delete[] k;
   delete[] b;
   delete[] k_prec;
+  if(rank==0)
+    delete[] k_global;
   return 0;
 }
