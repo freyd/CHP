@@ -42,7 +42,7 @@ int main(int argc, char* argv[]){
       Nx = Nx_global/size;
     }
   }
-
+  printf("rank %d Nx %d\n",rank,Nx);
    if(rank!=0 && rank != size-1)
      Nx+= 2*(recouv-1);
    else
@@ -194,16 +194,38 @@ double *b = new double[Nx*Ny];
  }
 
  MPI_Gatherv(k,Nx*Ny,MPI_DOUBLE,k_global,rcounts,displs,MPI_DOUBLE,0,MPI_COMM_WORLD);*/
+  k_global = new double[Nx_global*Ny];
 
-
-  if(rank==0){
-    k_global = new double[Nx_global*Ny];
+ if(Nx_global%size == 0){
+    if(rank==0){
     MPI_Gather(k,(Nx_global/size)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
     // Ligne du dessus à revoir -> cas où Nx n'est pas un multiple du nombre de procs
   }
   else
     MPI_Gather(&(k[recouv-1]),(Nx_global/size)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
 
+}
+  else{
+    if(rank < Nx_global%size){
+      if(rank==0){
+	MPI_Gather(k,(Nx_global/size +1)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    // Ligne du dessus à revoir -> cas où Nx n'est pas un multiple du nombre de procs
+  }
+  else
+    MPI_Gather(&(k[recouv-1]),(Nx_global/size +1)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
+
+    }
+    else{
+         if(rank==0){
+	MPI_Gather(k,(Nx_global/size +1)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    // Ligne du dessus à revoir -> cas où Nx n'est pas un multiple du nombre de procs
+  }
+  else
+    MPI_Gather(&(k[recouv-1]),(Nx_global/size +1)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
+
+    }
+  }
+  
 
     end = MPI_Wtime();
 
