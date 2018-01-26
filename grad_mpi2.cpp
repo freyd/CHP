@@ -18,7 +18,7 @@ double func_h(double x, double y){
 
 int main(int argc, char* argv[]){
   int Nx_global=120,Ny_global=100,Nx,Ny,Nmax=100;
-  int i,j,itr,tps,max_iter=10,tag=99,recouv=2,p(0),q;
+  int i,j,itr,tps,max_iter=10,tag=99,recouv=5,p(0),q;
   double Lx = 1.0,Ly=1.0,D=1.0,eps=1e-6,dt=0.1;
   double start,end;
   MPI::Init(argc, argv);
@@ -113,7 +113,7 @@ double *b = new double[Nx*Ny];
     #ifdef PARALLEL
    if(rank != 0 && rank != size -1){
       MPI_Recv(buf1,Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD,&status1);
-      MPI_Send(&(k[(Nx-1-2*(recouv-1))*(Ny)]),Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD); // Modif Ny-1 ==> Ny
+      MPI_Send(&(k[(Nx-1-2*(recouv-1))*(Ny)]),Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD); // Modif Ny-1 ==> Ny Modif => 1* au lieu de 2*
       MPI_Recv(buf2,Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD,&status2);
       MPI_Send(&(k[2*(recouv-1)*(Ny)]),Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD);
     }
@@ -181,7 +181,7 @@ double *b = new double[Nx*Ny];
        }
        else{
 	 if(i < Nx_global%size){
-	   rcounts[i] = (Nx_global/size + 1)*Ny; 
+	   rcounts[i] = (Nx_global/size + 1)*Ny;
 	 }
 	 else{
 	   rcounts[i] = (Nx_global/size)*Ny;
@@ -190,7 +190,7 @@ double *b = new double[Nx*Ny];
    }
 
    else{
-  
+
        displs[i] = displs[i-1] + rcounts[i-1];
 
        if(Nx_global%size == 0){
@@ -199,17 +199,17 @@ double *b = new double[Nx*Ny];
        }
        else{
 	 if(i < Nx_global%size){
-	   rcounts[i] = (Nx_global/size + 1)*Ny; 
+	   rcounts[i] = (Nx_global/size + 1)*Ny;
 	 }
 	 else{
 	   rcounts[i] = (Nx_global/size)*Ny;
 	 }
-   
+
        }
    }
  }
 
- 
+
   if(rank==0){
     MPI_Gatherv(k,(Nx-recouv+1)*Ny,MPI_DOUBLE,k_global,rcounts,displs,MPI_DOUBLE,0,MPI_COMM_WORLD);
   }
@@ -218,8 +218,8 @@ double *b = new double[Nx*Ny];
       MPI_Gatherv(&(k[(recouv-1)*Ny]),(Nx- 2*(recouv-1))*Ny,MPI_DOUBLE,k_global,rcounts,displs,MPI_DOUBLE,0,MPI_COMM_WORLD);
     else
       MPI_Gatherv(&(k[(recouv-1)*Ny]),(Nx-(recouv-1))*Ny,MPI_DOUBLE,k_global,rcounts,displs,MPI_DOUBLE,0,MPI_COMM_WORLD);
-     
-   
+
+
 
   /* if(rank==0){
     MPI_Gather(k,(Nx_global/size)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
@@ -230,7 +230,7 @@ double *b = new double[Nx*Ny];
   */
 
     end = MPI_Wtime();
-    
+
 if(rank==0){
   //std::cout << "\n";
     FILE* output = fopen("graphe.txt","w+");
@@ -301,18 +301,18 @@ MPI_Allreduce(&delta,&deltam,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
  if (rank == 0)
  {
    std::cout << "Temps d'exécution : " << delta << std::endl;
-   std::cout << "Speed-up : " << 148./deltam << std::endl;
-   std::cout << "Efficacité : " << 148./(size*deltam) << std::endl;
+   std::cout << "Speed-up : " << 28.646/deltam << std::endl;
+   std::cout << "Efficacité : " << 28.646/(size*deltam) << std::endl;
 
    FILE* output2 = fopen("eff_speedup.txt","a+");
 
- fprintf(output2,"%i %lf %lf %lf\n", size, deltam, 148./deltam, 148./(size*deltam));
+ fprintf(output2,"%i %lf %lf %lf\n", size, deltam, 28.646/deltam, 28.646/(size*deltam));
      fclose(output2);
  }
 
 
 
-    
+
 
 
   MPI::Finalize();
