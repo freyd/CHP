@@ -5,22 +5,27 @@
 #include <string>
 using namespace std;
 double func_f(double x, double y,double tmp){
-  return 2.0*(x-x*x + y-y*y);
+  // return 2.0*(x-x*x + y-y*y);
+  // return sin(x)+cos(y);
+  return exp(-pow(x-0.5,2)-pow(y-0.5,2))*cos(3.141592654/2.*tmp);
 }
 
 double func_g(double x, double y){
   return 0.0;
+  // return sin(x)+cos(y);
 }
 
 double func_h(double x, double y){
-  return 0.0;
+  // return 0.0;
+  // return sin(x)+cos(y);
+  return 1.;
 }
 
 int main(int argc, char* argv[]){
   int Nx_global=120,Ny_global=100,Nx,Ny,Nmax=100;
   int i,j,itr,tps,max_iter=10,tag=99,recouv=5,p(0),q;
   double Lx = 1.0,Ly=1.0,D=1.0,eps=1e-6,dt=0.1;
-  double start,end;
+  double start,end,err(0.),norm(0.);
   MPI::Init(argc, argv);
   MPI_Request request1, request2, request3, request4;
   MPI_Status status1, status2, status3, status4;
@@ -97,7 +102,6 @@ double *b = new double[Nx*Ny];
   }
   int tmax=100;
   for(tps=0; tps<tmax; tps++){
-  //itérations de Schwartz
     if (rank == 0)
     {
       q = floor((tps+1)*100./tmax);
@@ -107,8 +111,11 @@ double *b = new double[Nx*Ny];
         std::cout << p << " %" << std::endl;
       }
     }
+    //itérations de Schwartz
     for(itr=0;itr<500;itr++){
-
+    // while (/* condition */) {
+    //   /* code */
+    // }
       solve_parallel(Nx_global,Ny_global,Nmax,Lx,Ly,D,eps,dt,k,b,rank,size,recouv);
     #ifdef PARALLEL
    if(rank != 0 && rank != size -1){
@@ -133,7 +140,7 @@ double *b = new double[Nx*Ny];
     for(i=0;i<Nx;i++){
       for(j=0;j<Ny;j++){
 
-	b[i*Ny +j] = dt*func_f( (rank*(Nx_global/size)+ std::min(rank,Nx_global%size) + (i+1))*dx,(j+1)*dy,tps) + k_prec[i*Ny +j];
+	b[i*Ny +j] = dt*func_f( (rank*(Nx_global/size)+ std::min(rank,Nx_global%size) + (i+1))*dx,(j+1)*dy,tps*dt) + k_prec[i*Ny +j];
 
       if(j==0)
 	b[i*Ny +j] -= gamma*func_g((rank*(Nx_global/size)+ std::min(rank,Nx_global%size) + (i+1))*dx,0.0);
@@ -234,17 +241,22 @@ double *b = new double[Nx*Ny];
 if(rank==0){
   //std::cout << "\n";
     FILE* output = fopen("graphe.txt","w+");
-
+    err = 0.;
     for(i=0; i<Nx_global; i++){
       for(j=0; j<Ny; j++){
 	fprintf(output,"%lf %lf %lf\n", k_global[i*Ny +j],(j+1)*dy,(i+1)*dx);
-	//std::cout << (k_global[i*Ny +j] - (i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy))/(i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy) << " ";
+	// std::cout << (k_global[i*Ny +j] - (i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy))/((i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy)) << " ";
+	    //  err += pow((k_global[i*Ny +j] - (i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy)),2);
+	     err += pow((k_global[i*Ny +j] - (sin((i+1)*dx) +cos((j+1)*dy))),2);
+	    //  norm += pow((i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy),2);
+	     norm += pow(sin((i+1)*dx) +cos((j+1)*dy),2);
       }
-      //std::cout << "\n";
       }
+      err /= norm;
+      std::cout << err << "\n";
       fclose(output);
      std::ofstream solution;
-       solution.open("graphe.vtk", std::ios::out);
+       solution.open("graphe_t_"+to_string(tmax)+".vtk", std::ios::out);
        solution << "# vtk DataFile Version 3.0" << endl;
        solution << "sol" << endl;
        solution << "ASCII" << endl;
