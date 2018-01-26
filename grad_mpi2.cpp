@@ -16,10 +16,20 @@ double func_h(double x, double y){
   return 0.0;
 }
 
+double norme_relative(double *k1, double * k2, int Nx, int Ny){
+  int i,j;
+  double norme = 0.0, norme2=0.0;
+  for(i=0; i<Nx; i++)
+    for(j=0; j<Ny; j++){
+      norme += (k2[i*Ny+j]-k1[i*Ny+j])*(k2[i*Ny+j]-k1[i*Ny+j]);
+      norme2 += k1[i*Ny+j]*k1[i*Ny+j];
+    }
+  return norme/norme2;
+} 
 int main(int argc, char* argv[]){
   int Nx_global=120,Ny_global=100,Nx,Ny,Nmax=100;
   int i,j,itr,tps,max_iter=10,tag=99,recouv=2,p(0),q;
-  double Lx = 1.0,Ly=1.0,D=1.0,eps=1e-6,dt=0.1;
+  double Lx = 1.0,Ly=1.0,D=1.0,eps=1e-6,dt=0.1,eps_schwarz=1e-2;
   double start,end;
   MPI::Init(argc, argv);
   MPI_Request request1, request2, request3, request4;
@@ -95,8 +105,11 @@ double *b = new double[Nx*Ny];
   {
     std::cout << p << " %" << std::endl;
   }
+  double *k_schwarz = new double[Nx*Ny];
+
   int tmax=100;
   for(tps=0; tps<tmax; tps++){
+    itr = 0;
   //itérations de Schwartz
     if (rank == 0)
     {
@@ -107,10 +120,28 @@ double *b = new double[Nx*Ny];
         std::cout << p << " %" << std::endl;
       }
     }
-    for(itr=0;itr<500;itr++){
+    //for(itr=0;itr<500;itr++){
+    while(itr<500){
+
+      for(i=0;i<Nx;i++){
+	for(j=0;j<Ny;j++){
+	  k_schwarz[i*Ny + j] = k[i*Ny + j];
+	}
+      }
 
       solve_parallel(Nx_global,Ny_global,Nmax,Lx,Ly,D,eps,dt,k,b,rank,size,recouv);
-    #ifdef PARALLEL
+      if(rank==0)
+	printf("norme relative: %lf\n",norme_relative(k_schwarz,k,Nx,Ny));
+
+      bool cond = (norme_relative(k_schwarz,k,Nx,Ny) < eps);
+      bool cond_global;
+      MPI_Allreduce(&cond, &cond_global,1,MPI::BOOL,MPI_LAND,MPI_COMM_WORLD);
+      if(cond_global){
+	if(rank==0)
+	  printf("iteration final schwarz %d\n",itr);
+	break;
+      }
+#ifdef PARALLEL
    if(rank != 0 && rank != size -1){
       MPI_Recv(buf1,Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD,&status1);
       MPI_Send(&(k[(Nx-1-2*(recouv-1))*(Ny)]),Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD); // Modif Ny-1 ==> Ny
@@ -155,7 +186,8 @@ double *b = new double[Nx*Ny];
 	  b[i*Ny +j] -= beta*buf2[j];
       }
       }
-    }//modif b
+    }//modif b.
+    itr++;
 #endif
     }//iter schwarz
 #ifdef PARALLEL
@@ -320,5 +352,6 @@ MPI_Allreduce(&delta,&deltam,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
   delete[] b;
   delete[] k_prec;
   delete[] k_global;
+  delete[] k_schwarz;
   return 0;
 }
