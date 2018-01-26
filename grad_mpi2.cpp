@@ -17,8 +17,8 @@ double func_h(double x, double y){
 }
 
 int main(int argc, char* argv[]){
-  int Nx_global=240,Ny_global=100,Nx,Ny,Nmax=100;
-  int i,j,itr,tps,max_iter=10,tag=99,recouv=1,p(0),q;
+  int Nx_global=120,Ny_global=100,Nx,Ny,Nmax=100;
+  int i,j,itr,tps,max_iter=10,tag=99,recouv=2,p(0),q;
   double Lx = 1.0,Ly=1.0,D=1.0,eps=1e-6,dt=0.1;
   double start,end;
   MPI::Init(argc, argv);
@@ -168,67 +168,69 @@ double *b = new double[Nx*Ny];
 
   }//iter tps
   //std::cout << "I am " << rank << std::endl;
+  k_global = new double[Nx_global*Ny];
 
- /*
- int rcounts[size];
- int displs[size];
- for(int i=0; i<size;i++){
+  int rcounts[size];
+  int displs[size];
+  for(int i=0; i<size;i++){
    if(i==0){
      displs[i] = 0;
-     rcounts[i] = (Nx_global/size + recouv-1)*Ny;
-   }
-   else{
-     if(i == size-1){
-       displs[i] = displs[i-1] + (Nx_global/size + 2*(recouv-1))*Ny;
-       rcounts[i] = (Nx_global/size + recouv-1)*Ny;
-     }
-     else{
-       if(i==1){
-	 displs[i] = displs[i-1] + (Nx_global/size + (recouv-1))*Ny;
+       if(Nx_global%size == 0){
+	 rcounts[i] = (Nx_global/size)*Ny;
+
        }
-       else
-	 displs[i] = displs[i-1] + (Nx_global/size + 2*(recouv-1))*Ny;
-       rcounts[i] = (Nx_global/size + 2*(recouv-1))*Ny;
-     }
+       else{
+	 if(i < Nx_global%size){
+	   rcounts[i] = (Nx_global/size + 1)*Ny; 
+	 }
+	 else{
+	   rcounts[i] = (Nx_global/size)*Ny;
+	 }
+       }
+   }
+
+   else{
+  
+       displs[i] = displs[i-1] + rcounts[i-1];
+
+       if(Nx_global%size == 0){
+	 rcounts[i] = (Nx_global/size)*Ny;
+
+       }
+       else{
+	 if(i < Nx_global%size){
+	   rcounts[i] = (Nx_global/size + 1)*Ny; 
+	 }
+	 else{
+	   rcounts[i] = (Nx_global/size)*Ny;
+	 }
+   
+       }
    }
  }
 
- MPI_Gatherv(k,Nx*Ny,MPI_DOUBLE,k_global,rcounts,displs,MPI_DOUBLE,0,MPI_COMM_WORLD);*/
-  k_global = new double[Nx_global*Ny];
+ 
+  if(rank==0){
+    MPI_Gatherv(k,(Nx-recouv+1)*Ny,MPI_DOUBLE,k_global,rcounts,displs,MPI_DOUBLE,0,MPI_COMM_WORLD);
+  }
+  else
+    if(rank != size-1)
+      MPI_Gatherv(&(k[(recouv-1)*Ny]),(Nx- 2*(recouv-1))*Ny,MPI_DOUBLE,k_global,rcounts,displs,MPI_DOUBLE,0,MPI_COMM_WORLD);
+    else
+      MPI_Gatherv(&(k[(recouv-1)*Ny]),(Nx-(recouv-1))*Ny,MPI_DOUBLE,k_global,rcounts,displs,MPI_DOUBLE,0,MPI_COMM_WORLD);
+     
+   
 
- if(Nx_global%size == 0){
-    if(rank==0){
+  /* if(rank==0){
     MPI_Gather(k,(Nx_global/size)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
     // Ligne du dessus à revoir -> cas où Nx n'est pas un multiple du nombre de procs
   }
   else
     MPI_Gather(&(k[recouv-1]),(Nx_global/size)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
-
-}
-  else{
-    if(rank < Nx_global%size){
-      if(rank==0){
-	MPI_Gather(k,(Nx_global/size +1)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
-    // Ligne du dessus à revoir -> cas où Nx n'est pas un multiple du nombre de procs
-  }
-  else
-    MPI_Gather(&(k[recouv-1]),(Nx_global/size +1)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
-
-    }
-    else{
-         if(rank==0){
-	MPI_Gather(k,(Nx_global/size +1)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
-    // Ligne du dessus à revoir -> cas où Nx n'est pas un multiple du nombre de procs
-  }
-  else
-    MPI_Gather(&(k[recouv-1]),(Nx_global/size +1)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
-
-    }
-  }
-  
+  */
 
     end = MPI_Wtime();
-
+    
 if(rank==0){
   //std::cout << "\n";
     FILE* output = fopen("graphe.txt","w+");
@@ -310,14 +312,13 @@ MPI_Allreduce(&delta,&deltam,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
 
 
 
-
+    
 
 
   MPI::Finalize();
   delete[] k;
   delete[] b;
   delete[] k_prec;
-  if(rank==0)
-    delete[] k_global;
+  delete[] k_global;
   return 0;
 }
