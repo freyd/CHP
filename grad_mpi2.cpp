@@ -3,24 +3,33 @@
 #include <iostream>
 #include <fstream>
 #include <string>
+
 using namespace std;
+
+// Fonction terme source
 double func_f(double x, double y,double tmp){
   // return 2.0*(x-x*x + y-y*y);
   // return sin(x)+cos(y);
   return exp(-pow(x-0.5,2)-pow(y-0.5,2))*cos(3.141592654/2.*tmp);
 }
 
+
+// Fonction bord de gauche
 double func_g(double x, double y){
   return 0.0;
   // return sin(x)+cos(y);
 }
 
+
+// Fonction bord de droite
 double func_h(double x, double y){
   // return 0.0;
   // return sin(x)+cos(y);
   return 1.;
 }
 
+
+// Calcul de la norme
 double norme_relative(double *k1, double * k2, int Nx, int Ny){
   int i,j;
   double norme = 0.0, norme2=0.0;
@@ -31,12 +40,17 @@ double norme_relative(double *k1, double * k2, int Nx, int Ny){
     }
   return norme/norme2;
 }
+
+
+
 int main(int argc, char* argv[]){
   int Nx_global=120,Ny_global=100,Nx,Ny,Nmax=100;
   int i,j,itr,tps,max_iter=10,tag=99,recouv=2,p(0),q;
-  double Lx = 1.0,Ly=1.0,D=1.0,eps=1e-6,dt=0.1,eps_schwarz=1e-2;
+  double Lx = 1.0,Ly=1.0,D=1.0,eps=1e-6,dt=0.1,eps_schwarz=1e-6;
   double start,end;
+
   MPI::Init(argc, argv);
+
   MPI_Request request1, request2, request3, request4;
   MPI_Status status1, status2, status3, status4;
 
@@ -45,6 +59,7 @@ int main(int argc, char* argv[]){
 
   start = MPI_Wtime();
 
+  // Fonction charge
   Ny = Ny_global;
   if(Nx_global%size == 0){
     Nx = Nx_global/size;
@@ -57,7 +72,10 @@ int main(int argc, char* argv[]){
       Nx = Nx_global/size;
     }
   }
+
   printf("rank %d Nx %d\n",rank,Nx);
+
+  // Prise en compte du recouvrement
    if(rank!=0 && rank != size-1)
      Nx+= 2*(recouv-1);
    else
@@ -75,6 +93,7 @@ double *b = new double[Nx*Ny];
   double *buf2 = new double[Ny];
   double * k_global;
 
+  // Initialisation de la solution
   for(i=0;i<Nx;i++){
     for(j=0;j<Ny;j++){
       k[i*Ny + j] = 0.0;
@@ -82,7 +101,7 @@ double *b = new double[Nx*Ny];
     }
   }
 
-
+  // Initialisation du second membre b du système Ax = b
   for(i=0;i<Nx;i++){
     for(j=0;j<Ny;j++){
 
@@ -106,6 +125,7 @@ double *b = new double[Nx*Ny];
     }
   }
 
+  // Affichage pourcentage
   if (rank == 0)
   {
     std::cout << p << " %" << std::endl;
@@ -113,7 +133,9 @@ double *b = new double[Nx*Ny];
   double *k_schwarz = new double[Nx*Ny];
 
   int tmax=100;
+  // Itérations en temps
   for(tps=0; tps<tmax; tps++){
+    // Affichage pourcentage
     if (rank == 0)
     {
       q = floor((tps+1)*100./tmax);
@@ -123,28 +145,34 @@ double *b = new double[Nx*Ny];
         std::cout << p << " %" << std::endl;
       }
     }
-    //for(itr=0;itr<500;itr++){
+
+    // Itérations de Schwarz
     while(itr<500){
 
+      // Sauvegarde de l'itération de Schwarz
       for(i=0;i<Nx;i++){
-	for(j=0;j<Ny;j++){
-	  k_schwarz[i*Ny + j] = k[i*Ny + j];
-	}
-      }
+	       for(j=0;j<Ny;j++){
+	          k_schwarz[i*Ny + j] = k[i*Ny + j];
+	         }
+         }
 
+      // Résolution du gradient conjugué
       solve_parallel(Nx_global,Ny_global,Nmax,Lx,Ly,D,eps,dt,k,b,rank,size,recouv);
       if(rank==0)
 	printf("norme relative: %lf\n",norme_relative(k_schwarz,k,Nx,Ny));
 
-      bool cond = (norme_relative(k_schwarz,k,Nx,Ny) < eps);
+      // Critère d'arrêt de la boucle de Schwarz
+      bool cond = (norme_relative(k_schwarz,k,Nx,Ny) < eps_schwarz);
       bool cond_global;
       MPI_Allreduce(&cond, &cond_global,1,MPI::BOOL,MPI_LAND,MPI_COMM_WORLD);
       if(cond_global){
-	if(rank==0)
-	  printf("iteration final schwarz %d\n",itr);
-	break;
+	       if(rank==0)
+	        printf("iteration finale schwarz %d\n",itr);
+	         break;
       }
+
 #ifdef PARALLEL
+  // Communications aux frontières des sous-domaines
    if(rank != 0 && rank != size -1){
       MPI_Recv(buf1,Ny,MPI_DOUBLE,rank-1,tag,MPI_COMM_WORLD,&status1);
       MPI_Send(&(k[(Nx-1-2*(recouv-1))*(Ny)]),Ny,MPI_DOUBLE,rank+1,tag,MPI_COMM_WORLD); // Modif Ny-1 ==> Ny Modif => 1* au lieu de 2*
@@ -163,7 +191,7 @@ double *b = new double[Nx*Ny];
       }
     }
 
-
+    // Mise à jour du second membre
     for(i=0;i<Nx;i++){
       for(j=0;j<Ny;j++){
 
@@ -189,11 +217,14 @@ double *b = new double[Nx*Ny];
 	  b[i*Ny +j] -= beta*buf2[j];
       }
       }
-    }//modif b.
+    }//Fin mise à jour de b
     itr++;
 #endif
-    }//iter schwarz
+
+    }//Fin itérations de Schwarz
+
 #ifdef PARALLEL
+    // Sauvegarde de l'itération précédente
     for(i=0;i<Nx;i++){
       for(j=0;j<Ny;j++){
 	k_prec[i*Ny +j] = k[i*Ny+j];
@@ -201,8 +232,10 @@ double *b = new double[Nx*Ny];
     }
 #endif
 
-  }//iter tps
-  //std::cout << "I am " << rank << std::endl;
+  }//Fin itérations en tps
+
+
+  // Assemblage des solutions locales dans un vecteur global
   k_global = new double[Nx_global*Ny];
 
   int rcounts[size];
@@ -255,27 +288,24 @@ double *b = new double[Nx*Ny];
       MPI_Gatherv(&(k[(recouv-1)*Ny]),(Nx-(recouv-1))*Ny,MPI_DOUBLE,k_global,rcounts,displs,MPI_DOUBLE,0,MPI_COMM_WORLD);
 
 
-
-  /* if(rank==0){
-    MPI_Gather(k,(Nx_global/size)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
-    // Ligne du dessus à revoir -> cas où Nx n'est pas un multiple du nombre de procs
-  }
-  else
-    MPI_Gather(&(k[recouv-1]),(Nx_global/size)*Ny,MPI_DOUBLE,k_global,(Nx_global/size)*Ny,MPI_DOUBLE,0,MPI_COMM_WORLD);
-  */
-
     end = MPI_Wtime();
 
+    // Fin algorithme
+
+// Sauvegarde Paraview et Gnuplot
 if(rank==0){
-  //std::cout << "\n";
+
+    // Sauvegarde Gnuplot
     FILE* output = fopen("graphe.txt","w+");
     err = 0.;
     for(i=0; i<Nx_global; i++){
       for(j=0; j<Ny; j++){
 	fprintf(output,"%lf %lf %lf\n", k_global[i*Ny +j],(j+1)*dy,(i+1)*dx);
-	// std::cout << (k_global[i*Ny +j] - (i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy))/((i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy)) << " ";
-	    //  err += pow((k_global[i*Ny +j] - (i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy)),2);
-	     err += pow((k_global[i*Ny +j] - (sin((i+1)*dx) +cos((j+1)*dy))),2);
+
+      // Calcul d'erreurs
+
+	    //  err += pow((k_global[i*Ny +j] - (i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy)),2); // Cas 1
+	     err += pow((k_global[i*Ny +j] - (sin((i+1)*dx) +cos((j+1)*dy))),2); // Cas 2
 	    //  norm += pow((i+1)*dx*(1-(i+1)*dx)*(j+1)*dy*(1-(j+1)*dy),2);
 	     norm += pow(sin((i+1)*dx) +cos((j+1)*dy),2);
       }
@@ -283,8 +313,10 @@ if(rank==0){
       err /= norm;
       std::cout << err << "\n";
       fclose(output);
+
+      // Sauvegarde Paraview (solution globale)
      std::ofstream solution;
-       solution.open("graphe_t_"+to_string(tmax)+".vtk", std::ios::out);
+       solution.open("graphe.vtk", std::ios::out);
        solution << "# vtk DataFile Version 3.0" << endl;
        solution << "sol" << endl;
        solution << "ASCII" << endl;
@@ -310,7 +342,7 @@ if(rank==0){
 
 
 
-
+       // Sauvegarde Paraview (solution locale)
         std::ofstream solution;
           solution.open("graphe_"+to_string(rank)+".vtk", std::ios::out);
           solution << "# vtk DataFile Version 3.0" << endl;
@@ -334,6 +366,8 @@ if(rank==0){
       }
       solution.close();
 
+
+// Affichage temps d'exécution
 double delta,deltam;
 delta = end-start;
 MPI_Allreduce(&delta,&deltam,1,MPI_DOUBLE,MPI_MAX,MPI_COMM_WORLD);
